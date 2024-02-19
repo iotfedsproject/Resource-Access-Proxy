@@ -90,7 +90,7 @@ dependencies {
 
     // localMaven
     compile('com.github.symbiote-h2020:SymbIoTeLibraries:5.37+') { changing = true }
-
+    //compile fileTree(dir: 'libs', include: ['*.jar'])
     // Spring
     compile('org.springframework.cloud:spring-cloud-starter')
     compile('org.springframework.cloud:spring-cloud-starter-config')

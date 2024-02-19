@@ -26,6 +26,8 @@ import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+
+import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.List;
@@ -136,22 +138,58 @@ public class RAPEntityCollectionProcessor implements EntityCollectionProcessor {
             CustomODataApplicationException customOdataException = null;
             String jsonFilter;
             Integer top = null;
-            
+            String start_date = "undefined";
+            String end_date   = "undefined";
+
+            System.out.println("-------------------------------------------");
+            System.out.println("request.getBody().toString();");
+            System.out.println(request.getBody());
+            int size = request.getBody().available();
+
+            System.out.println("size = " + size);
+            try {
+                String body = IOUtils.toString(request.getBody(), StandardCharsets.UTF_8);
+                System.out.println("body = " + body);
+            }catch(Exception ex){
+                System.out.println("Exception ex");
+            }
+
+            try {
+
+               /*
+                * Find start date and end date.
+                */
+
+                if(uriInfo.asUriInfoEntityId().getCustomQueryOptions() !=null) {
+                    System.out.println("uriInfo.asUriInfoEntityId().getCustomQueryOptions()");
+                    for (int i = 0; i < uriInfo.asUriInfoEntityId().getCustomQueryOptions().size();i++){
+                        System.out.println(uriInfo.asUriInfoEntityId().getCustomQueryOptions().get(i).getName());
+                        System.out.println(uriInfo.asUriInfoEntityId().getCustomQueryOptions().get(i).getText());
+                        System.out.println(uriInfo.asUriInfoEntityId().getCustomQueryOptions().get(i).toString());
+                    }
+                    /*
+                     * TODO check if uriInfo.asUriInfoEntityId().getCustomQueryOptions().size() >=2
+                     */
+                    start_date = uriInfo.asUriInfoEntityId().getCustomQueryOptions().get(0).getText();
+                    end_date   = uriInfo.asUriInfoEntityId().getCustomQueryOptions().get(1).getText();
+                }
+
+                System.out.println("Start date = " + start_date);
+                System.out.println("End date = "   + end_date);
+
+            }catch(Exception ex){
+                System.out.println("EXCEPTION 1");
+
+            }
+
             // check if all query options are valid
             StringBuffer sb = new StringBuffer();
-            for(SystemQueryOption option: uriInfo.getSystemQueryOptions()) {
-                if(option.getKind() != SystemQueryOptionKind.TOP && option.getKind() != SystemQueryOptionKind.FILTER)
-                    sb.append("Query option '" + option.getName() + "' is not supported. ");
-            }
-            if(sb.length() != 0) {
-                setErrorResponse(response, 
-                        new CustomODataApplicationException(null, sb.toString().trim(), HttpStatusCode.NOT_IMPLEMENTED.getStatusCode(), Locale.ROOT),
-                        responseFormat);
-                return;
-            }
+
                 
             //TOP
             TopOption topOption = uriInfo.getTopOption();
+
+
             if (topOption != null) {
                 int topNumber = topOption.getValue();
                 if (topNumber >= 0) {
@@ -168,6 +206,7 @@ public class RAPEntityCollectionProcessor implements EntityCollectionProcessor {
 
             //FILTER
             FilterOption filter = uriInfo.getFilterOption();
+
             Query filterQuery = null;
             if (filter != null) {
                 Expression expression = filter.getExpression();
@@ -258,6 +297,15 @@ public class RAPEntityCollectionProcessor implements EntityCollectionProcessor {
                 return;
             }
 
+            DbResourceInfo r = new DbResourceInfo();
+            r.setInternalId(start_date);
+            resourceInfoList.add(r);
+
+            r = new DbResourceInfo();
+            r.setInternalId(end_date);
+            resourceInfoList.add(r);
+
+
             try {
                 rapPluginResponse = storageHelper.getRelatedObject(DbResourceInfo.toResourceInfos(resourceInfoList), top, filterQuery);
             } catch(ODataApplicationException odataExc) {
@@ -290,7 +338,7 @@ public class RAPEntityCollectionProcessor implements EntityCollectionProcessor {
             response.addHeader(HttpHeader.CONTENT_TYPE, responseFormat.toContentTypeString());
         } catch (Exception ex) {
             log.error("Generic error", ex);
-            throw ex;
+            //throw ex;
         }
     }
 

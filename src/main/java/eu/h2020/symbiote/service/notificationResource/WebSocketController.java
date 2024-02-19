@@ -9,6 +9,7 @@ import eu.h2020.symbiote.core.cci.accessNotificationMessages.SuccessfulAccessMes
 import eu.h2020.symbiote.security.commons.SecurityConstants;
 import eu.h2020.symbiote.security.commons.exceptions.custom.InvalidArgumentsException;
 import eu.h2020.symbiote.security.communication.payloads.SecurityCredentials;
+import org.omg.CORBA.ORB;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -177,6 +178,7 @@ public class WebSocketController extends TextWebSocketHandler {
             //log.info("checkAccessPolicies called");
             String authenticationSize = securityRequest.get("x-auth-size").trim();
 
+            /////////// IMPORTANT FOR EXTRA_INFO THE authenticationSize should be 0 ///////////////
             if(!authenticationSize.equals("0"))
               checkAccessPolicies(securityRequest,resourcesId);
 
@@ -192,7 +194,20 @@ public class WebSocketController extends TextWebSocketHandler {
                 case UNSUBSCRIBE:
                     log.debug("Unsubscribing resources..");
                     log.info("Unsubscribing resources..");
-                    Unsubscribe(session, resourcesId);
+                    UnsubscribeWithExtraInfo(session, resourcesId);
+                    break;
+                case EXTRA_INFO:
+                    log.debug("Extra info received..");
+                    log.info("Extra info received..");
+                    SubscribeHandleExtraInfo(session, resourcesId);
+                    break;
+                case KEEP_ALIVE_MESSAGE:
+                    log.info("keep alive message received, sending a keep alive message as response");
+                    try {
+                        session.sendMessage(new TextMessage("Keep alive message"));
+                    }catch(Exception ex){
+                        log.info("Exception in sending keep alive message");
+                    }
                     break;
             }
         }catch (JsonParseException jsonEx){
@@ -219,6 +234,142 @@ public class WebSocketController extends TextWebSocketHandler {
                     e.getMessage()));
             sendFailMessage(message,e);
         }
+    }//end
+//---------------------------------------------------------------------------------------------------------------
+    private void SubscribeHandleExtraInfo(WebSocketSession session, List<String> resourcesId) throws Exception {
+
+        System.out.println("HandleExtraInfo");
+
+        String resourceId = resourcesId.get(0);
+        String extraInfo  = resourcesId.get(1);
+
+        System.out.println("resourceId = " + resourceId);
+        System.out.println("extraInfo =  " + extraInfo);
+
+        DbResourceInfo resInfo = getResourceInfo(resourceId);
+        String pluginId        = resInfo.getPluginId();
+
+        /*
+         * if no plugin id specified,
+         * we assume there's only one plugin attached.
+         */
+
+        if(pluginId == null) {
+            List<PlatformInfo> lst = pluginRepo.findAll();
+
+            if(lst == null || lst.isEmpty())
+                throw new Exception("No plugin found");
+
+            pluginId = lst.get(0).getPlatformId();
+        }
+
+        System.out.println("pluginId =  " + pluginId);
+
+        //update DB
+        List<String> sessionsIdOfRes = resInfo.getSessionId();
+
+        if (sessionsIdOfRes == null) {
+            System.out.println("sessionsIdOfRes == null");
+            sessionsIdOfRes = new ArrayList<>();
+        }
+        sessionsIdOfRes.add(session.getId());
+        System.out.println("session.getId() = " + session.getId());
+        resInfo.setSessionId(sessionsIdOfRes);
+        resourcesRepo.save(resInfo);
+
+        //List<ResourceInfo> resList   = extraInfoList.get(plugin).stream().map(ri -> ri.toResourceInfo()).collect(Collectors.toList());
+        System.out.println("1");
+        List<ResourceInfo> resList  = new ArrayList<>();
+        ResourceInfo resourceInfo   = new ResourceInfo();
+        System.out.println("2");
+        resourceInfo.setInternalId(extraInfo);
+        System.out.println("3");
+        resList.add(resourceInfo);
+        System.out.println("4");
+        ResourceAccessMessage msg    = new ResourceAccessSubscribeMessage(resList);
+        System.out.println("5");
+        String routingKey = pluginId + "." + ResourceAccessMessage.AccessType.SUBSCRIBE.toString().toLowerCase();
+        System.out.println("6");
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.configure(SerializationFeature.INDENT_OUTPUT, true);
+        System.out.println("7");
+        mapper.setSerializationInclusion(JsonInclude.Include.NON_EMPTY);
+        System.out.println("8");
+        String json = mapper.writeValueAsString(msg);
+        System.out.println("9");
+        rabbitTemplate.convertSendAndReceive(exchange.getName(), routingKey, json);
+        System.out.println("10");
+
+    }//end
+//------------------------------------------------------------------------------------------------------
+    private void UnsubscribeWithExtraInfo(WebSocketSession session, List<String> resourcesId) throws Exception {
+
+        System.out.println("UnsubscribeWithExtraInfo");
+
+        String resourceId = resourcesId.get(0);
+        String extraInfo  = resourcesId.get(1);
+
+        System.out.println("resourceId = " + resourceId);
+        System.out.println("extraInfo =  " + extraInfo);
+
+        DbResourceInfo resInfo = getResourceInfo(resourceId);
+        String pluginId        = resInfo.getPluginId();
+
+        /*
+         * if no plugin id specified,
+         * we assume there's only one plugin attached.
+         */
+
+        if(pluginId == null) {
+            List<PlatformInfo> lst = pluginRepo.findAll();
+
+            if(lst == null || lst.isEmpty())
+                throw new Exception("No plugin found");
+
+            pluginId = lst.get(0).getPlatformId();
+        }
+
+        System.out.println("pluginId =  " + pluginId);
+
+        //update DB
+        List<String> sessionsIdOfRes = resInfo.getSessionId();
+
+        if (sessionsIdOfRes == null) {
+            System.out.println("sessionsIdOfRes == null");
+            sessionsIdOfRes = new ArrayList<>();
+        }
+        /*
+         * Remove the session id from
+         * resources session list.
+         */
+        sessionsIdOfRes.remove(session.getId());
+        System.out.println("session.getId() = " + session.getId());
+        resInfo.setSessionId(sessionsIdOfRes);
+        resourcesRepo.save(resInfo);
+
+        //List<ResourceInfo> resList   = extraInfoList.get(plugin).stream().map(ri -> ri.toResourceInfo()).collect(Collectors.toList());
+        System.out.println("1");
+        List<ResourceInfo> resList  = new ArrayList<>();
+        ResourceInfo resourceInfo   = new ResourceInfo();
+        System.out.println("2");
+        resourceInfo.setInternalId(extraInfo);
+        System.out.println("3");
+        resList.add(resourceInfo);
+        System.out.println("4");
+        ResourceAccessMessage msg    = new ResourceAccessUnSubscribeMessage(resList);
+        System.out.println("5");
+        String routingKey = pluginId + "." + ResourceAccessMessage.AccessType.UNSUBSCRIBE.toString().toLowerCase();
+        System.out.println("6");
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.configure(SerializationFeature.INDENT_OUTPUT, true);
+        System.out.println("7");
+        mapper.setSerializationInclusion(JsonInclude.Include.NON_EMPTY);
+        System.out.println("8");
+        String json = mapper.writeValueAsString(msg);
+        System.out.println("9");
+        rabbitTemplate.convertSendAndReceive(exchange.getName(), routingKey, json);
+        System.out.println("10");
+
     }//end
 //---------------------------------------------------------------------------------------------------------------
     private void Subscribe(WebSocketSession session, List<String> resourcesId) throws Exception {
@@ -256,7 +407,7 @@ public class WebSocketController extends TextWebSocketHandler {
             List<ResourceInfo> resList = subscribeList.get(plugin).stream().map(ri -> ri.toResourceInfo()).collect(Collectors.toList());
             ResourceAccessMessage msg = new ResourceAccessSubscribeMessage(resList);
             String routingKey = plugin + "." + ResourceAccessMessage.AccessType.SUBSCRIBE.toString().toLowerCase();
-            
+
             ObjectMapper mapper = new ObjectMapper();
             mapper.configure(SerializationFeature.INDENT_OUTPUT, true);
             mapper.setSerializationInclusion(JsonInclude.Include.NON_EMPTY);        

@@ -166,6 +166,7 @@ public class StorageHelper {
     public RapPluginResponse getRelatedObject(List<ResourceInfo> resourceInfoList, Integer top, Query filterQuery) throws ODataApplicationException {
         String symbioteId = null;
         RapPluginResponse response = null;
+        System.out.println("StorageHelper getRelatedObject");
         try {
             top = (top == null) ? TOP_LIMIT : top;
             ResourceAccessMessage msg;
@@ -479,6 +480,7 @@ public class StorageHelper {
      * @throws ODataApplicationException exception in handling OData
      */
     public static Query calculateFilter(Expression expression) throws ODataApplicationException {
+        System.out.println("StorageHelper calculateFilter");
 
         if (expression instanceof Binary) {
             Expression left = ((Binary) expression).getLeftOperand();

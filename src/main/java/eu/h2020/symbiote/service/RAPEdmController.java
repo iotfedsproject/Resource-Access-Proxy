@@ -101,11 +101,13 @@ public class RAPEdmController {
     @CrossOrigin(origins = "*")
     @RequestMapping(value = "**")
     public ResponseEntity<String> process(HttpServletRequest req) throws Exception {
+        System.out.println("RAPEdmController: process()");
         return processRequestPrivate(req);
     }
 
     @RequestMapping(value = "*('{resourceId}')/*")
     public ResponseEntity<String> processResources(HttpServletRequest req) throws Exception {
+        System.out.println("RAPEdmController: processResources()");
         return processRequestPrivate(req);
     }
 
@@ -114,6 +116,7 @@ public class RAPEdmController {
         String responseStr = null;
         MultiValueMap<String, String> headers = new HttpHeaders();
         HttpStatus httpStatus = null;
+        System.out.println("##########processRequestPrivate###########");
         try {            
             OData odata = OData.newInstance();
             ServiceMetadata edm = odata.createServiceMetadata(edmProvider, new ArrayList<>());
@@ -123,17 +126,26 @@ public class RAPEdmController {
             handler.register(primitiveProcessor);
 
             response = handler.process(createODataRequest(req, split));
+
+            System.out.println("####### response = " + response);
+            System.out.println("####### response.getContent() = " + response.getContent());
             
             responseStr = StreamUtils.copyToString(response.getContent(), StandardCharsets.UTF_8);
+            System.out.println("#######responseStr = " + responseStr);
             if(!HttpStatus.valueOf(response.getStatusCode()).is2xxSuccessful()){
-                if(responseStr != null && !responseStr.isEmpty())
+                if(responseStr != null && !responseStr.isEmpty()) {
+                    System.out.println("#######responseStr != null && !responseStr.isEmpty()");
                     sendFailMessage(req, responseStr);
-                else
+                }
+                else {
+                    System.out.println("#######responseStr != null && !responseStr.isEmpty()");
                     sendFailMessage(req, Integer.toString(response.getStatusCode()));
+                }
             }
 
             httpStatus = HttpStatus.valueOf(response.getStatusCode());            
         } catch (IOException | ODataException e) {
+            System.out.println("####Exception");
             responseStr = sendFailMessage(req, e.getClass().getName() + ": " + e.getMessage());
             log.error(e.getMessage(), e);
             httpStatus = HttpStatus.INTERNAL_SERVER_ERROR;
@@ -164,7 +176,7 @@ public class RAPEdmController {
             ObjectMapper mapper = new ObjectMapper();
 
             String code = Integer.toString(HttpStatus.INTERNAL_SERVER_ERROR.value());
-            message = "Error: " + error;               
+            message = "Error1: " + error;
             try {
                 customOdataExc = mapper.readValue(message, CustomODataApplicationException.class);
             } catch (IOException ex) {
@@ -199,22 +211,25 @@ public class RAPEdmController {
      */
     private ODataRequest createODataRequest(final HttpServletRequest httpRequest, final int split) throws ODataException {
         try {
+            System.out.println("RAPEdmControlerr: createODataRequest");
             ODataRequest odRequest = new ODataRequest();
-
+            System.out.println("1");
             extractHeaders(odRequest, httpRequest);
             extractMethod(odRequest, httpRequest);
             extractUri(odRequest, httpRequest, split);
-
+            System.out.println("2");
             // set body
             StringWriter writer = new StringWriter();
             IOUtils.copy(httpRequest.getInputStream(), writer, StandardCharsets.UTF_8);
             String input = writer.toString();
-            log.info("Input: {}", input);
+            log.info("Input1: {}", input);
+            System.out.println("3");
             
             // TODO check if service is called and body need to be JSON objs separated with comma (not array)
             if(odRequest.getRawODataPath().toLowerCase().startsWith("service(") ||
             		odRequest.getRawODataPath().toLowerCase().startsWith("services(")) 
             {
+                log.info("111");
                 // service - coverting input JSON to input parametres separated by comma
                 ObjectMapper mapper = new ObjectMapper();
                 List<Object> objects = mapper.readValue(input, new TypeReference<List<Object>>() { });
@@ -226,12 +241,13 @@ public class RAPEdmController {
                         sw.append(",\n");
                 }
                 input = sw.toString();
+                System.out.println("inpu2  = " + input);
                 // setting custom header if it is service
                 odRequest.addHeader("X-RAP-Service", "true");
             }
 
             odRequest.setBody(new ReaderInputStream(new StringReader(input), StandardCharsets.UTF_8));
-            
+            log.info("2222");
             return odRequest;
         } catch (final IOException e) {
             throw new SerializerException("An I/O exception occurred.", e,

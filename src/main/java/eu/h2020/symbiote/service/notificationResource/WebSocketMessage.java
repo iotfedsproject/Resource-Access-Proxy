@@ -14,7 +14,7 @@ import java.util.List;
 public class WebSocketMessage {
     
     public enum Action {
-        SUBSCRIBE, UNSUBSCRIBE
+        SUBSCRIBE, UNSUBSCRIBE,EXTRA_INFO,KEEP_ALIVE_MESSAGE
     }
     
     private Action action;

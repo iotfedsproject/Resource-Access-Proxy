@@ -120,6 +120,7 @@ public class RAPPrimitiveProcessor implements PrimitiveProcessor {
     @Override
     public void readPrimitive(ODataRequest request, ODataResponse response, UriInfo uriInfo, ContentType responseFormat) 
             throws ODataApplicationException, ODataLibraryException {
+        System.out.println("readPrimitive");
         Object obj;
         Integer top = null;  
         Query filterQuery = null;
@@ -205,9 +206,11 @@ public class RAPPrimitiveProcessor implements PrimitiveProcessor {
         
         
         try{
+            System.out.println("RAPPrimitiveProcessor storageHelper.getRelatedObject");
             obj = storageHelper.getRelatedObject(DbResourceInfo.toResourceInfos(resourceInfoList), top, filterQuery);
         }
         catch(ODataApplicationException odataExc){
+            System.out.println("catch(ODataApplicationException odataExc)");
             log.error(odataExc.getMessage());
             customOdataException = new CustomODataApplicationException(symbioteId,odataExc.getMessage(), 
                     odataExc.getStatusCode(), odataExc.getLocale());
@@ -242,12 +245,12 @@ public class RAPPrimitiveProcessor implements PrimitiveProcessor {
 
     @Override
     public void updatePrimitive(ODataRequest odr, ODataResponse odr1, UriInfo ui, ContentType ct, ContentType ct1) throws ODataApplicationException, ODataLibraryException {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        throw new UnsupportedOperationException("Not supported yet1."); //To change body of generated methods, choose Tools | Templates.
     }
 
     @Override
     public void deletePrimitive(ODataRequest odr, ODataResponse odr1, UriInfo ui) throws ODataApplicationException, ODataLibraryException {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        throw new UnsupportedOperationException("Not supported yet2."); //To change body of generated methods, choose Tools | Templates.
     }
 
     
